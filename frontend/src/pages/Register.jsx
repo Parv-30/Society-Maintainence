@@ -48,29 +48,18 @@ export default function Register() {
           <input type="password" className="w-full border-gray-300 border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" minLength={6}
             value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required placeholder="••••••••" />
         </div>
-        <div>
-          <label className="block mb-1 font-medium text-sm text-gray-700">Role</label>
-          <select className="w-full border-gray-300 border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
-            <option value="resident">Resident</option>
-            <option value="admin">Admin</option>
-          </select>
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <label className="block mb-1 font-medium text-sm text-gray-700">Block</label>
+            <input type="text" className="w-full border-gray-300 border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              value={formData.block} onChange={e => setFormData({...formData, block: e.target.value})} required placeholder="A" />
+          </div>
+          <div className="flex-1">
+            <label className="block mb-1 font-medium text-sm text-gray-700">Flat Number</label>
+            <input type="text" className="w-full border-gray-300 border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              value={formData.flatNumber} onChange={e => setFormData({...formData, flatNumber: e.target.value})} required placeholder="101" />
+          </div>
         </div>
-        
-        {formData.role === 'resident' && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="flex gap-4">
-            <div className="flex-1">
-              <label className="block mb-1 font-medium text-sm text-gray-700">Block</label>
-              <input type="text" className="w-full border-gray-300 border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                value={formData.block} onChange={e => setFormData({...formData, block: e.target.value})} required placeholder="A" />
-            </div>
-            <div className="flex-1">
-              <label className="block mb-1 font-medium text-sm text-gray-700">Flat Number</label>
-              <input type="text" className="w-full border-gray-300 border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                value={formData.flatNumber} onChange={e => setFormData({...formData, flatNumber: e.target.value})} required placeholder="101" />
-            </div>
-          </motion.div>
-        )}
 
         <button type="submit" className="w-full bg-blue-600 text-white p-3 mt-4 rounded-lg font-semibold hover:bg-blue-700 transition transform hover:-translate-y-0.5 shadow-md">
           Create Account

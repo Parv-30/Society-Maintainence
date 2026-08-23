@@ -23,28 +23,32 @@ exports.createComplaint = async (req, res) => {
       return res.status(400).json({ error: 'Resident must have a block assigned to raise a complaint' });
     }
 
-    const recurrenceResult = await handleRecurrence(data.categoryId, user.block);
+    const complaint = await prisma.$transaction(async (tx) => {
+      const recurrenceResult = await handleRecurrence(data.categoryId, user.block, tx);
 
-    const complaint = await prisma.complaint.create({
-      data: {
-        residentId: req.user.id,
-        categoryId: data.categoryId,
-        title: data.title,
-        description: data.description,
-        photoUrl: data.photoUrl || null,
-        threadId: recurrenceResult.threadId,
-        priority: recurrenceResult.priority || 'Low',
-        priorityAutoSet: recurrenceResult.priorityAutoSet,
-      }
-    });
+      const newComplaint = await tx.complaint.create({
+        data: {
+          residentId: req.user.id,
+          categoryId: data.categoryId,
+          title: data.title,
+          description: data.description,
+          photoUrl: data.photoUrl || null,
+          threadId: recurrenceResult.threadId,
+          priority: recurrenceResult.priority || 'Low',
+          priorityAutoSet: recurrenceResult.priorityAutoSet,
+        }
+      });
 
-    await prisma.complaintHistory.create({
-      data: {
-        complaintId: complaint.id,
-        actorId: req.user.id,
-        toStatus: 'Open',
-        note: 'Complaint created'
-      }
+      await tx.complaintHistory.create({
+        data: {
+          complaintId: newComplaint.id,
+          actorId: req.user.id,
+          toStatus: 'Open',
+          note: 'Complaint created'
+        }
+      });
+
+      return newComplaint;
     });
 
     res.status(201).json(complaint);
@@ -61,7 +65,7 @@ exports.getMine = async (req, res) => {
   try {
     const complaints = await prisma.complaint.findMany({
       where: { residentId: req.user.id },
-      include: { category: true, thread: true },
+      include: { category: true },
       orderBy: { createdAt: 'desc' }
     });
     res.json(complaints);
@@ -92,15 +96,18 @@ exports.getHistory = async (req, res) => {
   try {
     const complaint = await prisma.complaint.findUnique({
       where: { id: req.params.id },
-      include: { history: { include: { actor: true }, orderBy: { changedAt: 'asc' } } }
     });
-
     if (!complaint) return res.status(404).json({ error: 'Not found' });
     if (req.user.role !== 'admin' && complaint.residentId !== req.user.id) {
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    res.json(complaint.history);
+    const history = await prisma.complaintHistory.findMany({
+      where: { complaintId: req.params.id },
+      include: { actor: { select: { name: true, role: true } } },
+      orderBy: { changedAt: 'asc' }
+    });
+    res.json(history);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -109,55 +116,60 @@ exports.getHistory = async (req, res) => {
 exports.submitFeedback = async (req, res) => {
   try {
     const data = feedbackSchema.parse(req.body);
-    const complaint = await prisma.complaint.findUnique({ where: { id: req.params.id } });
+    const complaint = await prisma.complaint.findUnique({
+      where: { id: req.params.id },
+      include: { feedback: true }
+    });
 
     if (!complaint || complaint.residentId !== req.user.id) {
-      return res.status(404).json({ error: 'Complaint not found or unauthorized' });
+      return res.status(403).json({ error: 'Forbidden' });
     }
-    if (complaint.status !== 'Resolved') {
-      return res.status(400).json({ error: 'Can only submit feedback on resolved complaints' });
+    if (complaint.status !== 'Resolved' || complaint.feedback) {
+      return res.status(400).json({ error: 'Feedback not allowed' });
     }
 
-    const hoursSinceResolution = (new Date() - complaint.resolvedAt) / (1000 * 60 * 60);
-    if (data.reopen && data.rating <= 2) {
-      if (hoursSinceResolution > 48) {
-        return res.status(400).json({ error: 'Time limit to reopen (48h) exceeded' });
+    const feedback = await prisma.$transaction(async (tx) => {
+      let shouldReopen = false;
+      if (data.reopen && data.rating <= 2) {
+        const resolvedHoursAgo = (new Date() - new Date(complaint.resolvedAt)) / (1000 * 60 * 60);
+        if (resolvedHoursAgo <= 48) {
+          shouldReopen = true;
+
+          await tx.complaint.update({
+            where: { id: complaint.id },
+            data: { status: 'Reopened' }
+          });
+
+          await tx.complaintHistory.create({
+            data: {
+              complaintId: complaint.id,
+              actorId: req.user.id,
+              fromStatus: 'Resolved',
+              toStatus: 'Reopened',
+              note: `Reopened due to poor feedback rating (${data.rating})`
+            }
+          });
+
+          const admin = await tx.user.findFirst({ where: { role: 'admin' } });
+          if (admin) {
+            await tx.emailOutbox.create({
+              data: {
+                toEmail: admin.email,
+                subject: `Complaint Reopened: ${complaint.title}`,
+                body: `Complaint ${complaint.id} was reopened by the resident with a rating of ${data.rating}.`
+              }
+            });
+          }
+        }
       }
 
-      await prisma.complaint.update({
-        where: { id: complaint.id },
-        data: { status: 'Reopened', resolvedAt: null }
-      });
-
-      await prisma.complaintHistory.create({
+      return await tx.complaintFeedback.create({
         data: {
           complaintId: complaint.id,
-          actorId: req.user.id,
-          fromStatus: 'Resolved',
-          toStatus: 'Reopened',
-          note: `Reopened by resident due to low rating (${data.rating})`
+          rating: data.rating,
+          reopened: shouldReopen
         }
       });
-      
-      // Notify admin (outbox)
-      const adminUsers = await prisma.user.findMany({ where: { role: 'admin' } });
-      for (const admin of adminUsers) {
-        await prisma.emailOutbox.create({
-          data: {
-            toEmail: admin.email,
-            subject: `Complaint Reopened: ${complaint.title}`,
-            body: `Complaint ${complaint.id} was reopened by the resident with a rating of ${data.rating}.`
-          }
-        });
-      }
-    }
-
-    const feedback = await prisma.complaintFeedback.create({
-      data: {
-        complaintId: complaint.id,
-        rating: data.rating,
-        reopened: data.reopen && data.rating <= 2
-      }
     });
 
     res.json(feedback);

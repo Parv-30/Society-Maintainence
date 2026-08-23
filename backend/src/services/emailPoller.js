@@ -3,10 +3,16 @@ const { Resend } = require('resend');
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key');
 
+const MAX_RETRIES = 3;
+
 async function processOutbox() {
   try {
     const pendingEmails = await prisma.emailOutbox.findMany({
-      where: { status: 'pending' },
+      where: {
+        status: 'pending',
+        retryCount: { lt: MAX_RETRIES }
+      },
+      orderBy: { createdAt: 'asc' },
       take: 10
     });
 
@@ -24,10 +30,14 @@ async function processOutbox() {
           data: { status: 'sent', sentAt: new Date() }
         });
       } catch (error) {
-        console.error(`Failed to send email ${email.id}:`, error);
+        console.error(`Failed to send email ${email.id} (attempt ${email.retryCount + 1}/${MAX_RETRIES}):`, error.message);
+        const newRetryCount = email.retryCount + 1;
         await prisma.emailOutbox.update({
           where: { id: email.id },
-          data: { status: 'failed' }
+          data: {
+            retryCount: newRetryCount,
+            status: newRetryCount >= MAX_RETRIES ? 'failed' : 'pending'
+          }
         });
       }
     }

@@ -70,31 +70,35 @@ exports.updateStatus = async (req, res) => {
 
     if (!complaint) return res.status(404).json({ error: 'Not found' });
 
-    const updated = await prisma.complaint.update({
-      where: { id: complaint.id },
-      data: {
-        status: data.status,
-        resolvedAt: data.status === 'Resolved' ? new Date() : null,
-      }
-    });
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedComplaint = await tx.complaint.update({
+        where: { id: complaint.id },
+        data: {
+          status: data.status,
+          resolvedAt: data.status === 'Resolved' ? new Date() : null,
+        }
+      });
 
-    await prisma.complaintHistory.create({
-      data: {
-        complaintId: complaint.id,
-        actorId: req.user.id,
-        fromStatus: complaint.status,
-        toStatus: data.status,
-        note: data.note || null
-      }
-    });
+      await tx.complaintHistory.create({
+        data: {
+          complaintId: complaint.id,
+          actorId: req.user.id,
+          fromStatus: complaint.status,
+          toStatus: data.status,
+          note: data.note || null
+        }
+      });
 
-    // Notify resident (outbox)
-    await prisma.emailOutbox.create({
-      data: {
-        toEmail: complaint.resident.email,
-        subject: `Complaint Status Updated: ${complaint.title}`,
-        body: `Your complaint status has changed from ${complaint.status} to ${data.status}. Note: ${data.note || 'None'}`
-      }
+      // Transactional Outbox insertion
+      await tx.emailOutbox.create({
+        data: {
+          toEmail: complaint.resident.email,
+          subject: `Complaint Status Updated: ${complaint.title}`,
+          body: `Your complaint status has changed from ${complaint.status} to ${data.status}. Note: ${data.note || 'None'}`
+        }
+      });
+
+      return updatedComplaint;
     });
 
     res.json(updated);

@@ -4,13 +4,14 @@ const RECURRENCE_WINDOW_DAYS = parseInt(process.env.RECURRENCE_WINDOW_DAYS || '3
 
 /**
  * Evaluates recurrence for a new complaint and returns the target thread details.
+ * Uses Prisma transaction client (tx) for atomicity.
  */
-async function handleRecurrence(categoryId, block) {
+async function handleRecurrence(categoryId, block, tx) {
   const windowStart = new Date();
   windowStart.setDate(windowStart.getDate() - RECURRENCE_WINDOW_DAYS);
 
   // Find recent thread
-  const existingThread = await prisma.issueThread.findFirst({
+  const existingThread = await tx.issueThread.findFirst({
     where: {
       categoryId,
       block,
@@ -24,13 +25,12 @@ async function handleRecurrence(categoryId, block) {
   });
 
   if (existingThread) {
-    const updatedCount = existingThread.recurrenceCount + 1;
-    const shouldEscalate = updatedCount >= 3 && !existingThread.autoEscalated;
+    const shouldEscalate = (existingThread.recurrenceCount + 1) >= 3 && !existingThread.autoEscalated;
 
-    const thread = await prisma.issueThread.update({
+    const thread = await tx.issueThread.update({
       where: { id: existingThread.id },
       data: {
-        recurrenceCount: updatedCount,
+        recurrenceCount: { increment: 1 },
         lastReportedAt: new Date(),
         autoEscalated: existingThread.autoEscalated || shouldEscalate
       }
@@ -43,7 +43,7 @@ async function handleRecurrence(categoryId, block) {
     };
   } else {
     // Create new thread
-    const thread = await prisma.issueThread.create({
+    const thread = await tx.issueThread.create({
       data: {
         categoryId,
         block,

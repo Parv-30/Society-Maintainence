@@ -10,25 +10,32 @@ const noticeSchema = z.object({
 exports.createNotice = async (req, res) => {
   try {
     const data = noticeSchema.parse(req.body);
-    const notice = await prisma.notice.create({
-      data: {
-        adminId: req.user.id,
-        title: data.title,
-        body: data.body,
-        isImportant: data.isImportant
+    
+    const notice = await prisma.$transaction(async (tx) => {
+      const createdNotice = await tx.notice.create({
+        data: {
+          adminId: req.user.id,
+          title: data.title,
+          body: data.body,
+          isImportant: data.isImportant
+        }
+      });
+
+      if (data.isImportant) {
+        const residents = await tx.user.findMany({ where: { role: 'resident' } });
+        const emails = residents.map(r => ({
+          toEmail: r.email,
+          subject: `[IMPORTANT] ${data.title}`,
+          body: data.body
+        }));
+
+        if (emails.length > 0) {
+          await tx.emailOutbox.createMany({ data: emails });
+        }
       }
+
+      return createdNotice;
     });
-
-    if (data.isImportant) {
-      const residents = await prisma.user.findMany({ where: { role: 'resident' } });
-      const emails = residents.map(r => ({
-        toEmail: r.email,
-        subject: `[IMPORTANT] ${data.title}`,
-        body: data.body
-      }));
-
-      await prisma.emailOutbox.createMany({ data: emails });
-    }
 
     res.status(201).json(notice);
   } catch (error) {

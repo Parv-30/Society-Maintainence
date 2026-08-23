@@ -112,13 +112,14 @@ model ComplaintFeedback {
 }
 
 model EmailOutbox {
-  id        String       @id @default(uuid())
-  toEmail   String
-  subject   String
-  body      String
-  status    OutboxStatus @default(pending)
-  createdAt DateTime     @default(now())
-  sentAt    DateTime?
+  id         String       @id @default(uuid())
+  toEmail    String
+  subject    String
+  body       String
+  status     OutboxStatus @default(pending)
+  retryCount Int          @default(0)
+  createdAt  DateTime     @default(now())
+  sentAt     DateTime?
 }
 
 enum OutboxStatus {

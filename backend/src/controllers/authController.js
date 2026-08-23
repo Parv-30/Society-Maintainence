@@ -7,7 +7,7 @@ const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(6),
-  role: z.enum(['resident', 'admin']),
+  // role is deliberately omitted; users can only register as 'resident'
   flatNumber: z.string().optional(),
   block: z.string().optional(),
 });
@@ -31,7 +31,7 @@ exports.register = async (req, res) => {
         name: data.name,
         email: data.email,
         passwordHash,
-        role: data.role,
+        role: 'resident', // Hardcoded for security
         flatNumber: data.flatNumber,
         block: data.block,
       },
@@ -55,9 +55,13 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET environment variable is not defined');
+    }
+
     const token = jwt.sign(
       { id: user.id, role: user.role, name: user.name, block: user.block },
-      process.env.JWT_SECRET || 'super_secret_jwt_key_for_dev',
+      process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 
