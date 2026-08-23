@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import api from '../../utils/api';
+import api from '../../api';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 

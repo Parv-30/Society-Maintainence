@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+# Install OpenSSL (required by Prisma on Alpine)
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -14,5 +17,5 @@ RUN npx prisma generate
 
 EXPOSE 5000
 
-# Use nodemon for development
-CMD ["npm", "run", "dev"]
+# Run migrations + seed, then start server
+CMD ["sh", "entrypoint.sh"]

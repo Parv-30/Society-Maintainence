@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import api from '../../utils/api';
+import api from '../../api';
 import { format } from 'date-fns';
 
 export default function RecurringIssues() {

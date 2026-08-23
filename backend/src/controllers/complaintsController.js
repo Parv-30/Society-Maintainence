@@ -70,6 +70,24 @@ exports.getMine = async (req, res) => {
   }
 };
 
+exports.getComplaintById = async (req, res) => {
+  try {
+    const complaint = await prisma.complaint.findUnique({
+      where: { id: req.params.id },
+      include: { category: true, resident: true }
+    });
+
+    if (!complaint) return res.status(404).json({ error: 'Not found' });
+    if (req.user.role !== 'admin' && complaint.residentId !== req.user.id) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    res.json(complaint);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 exports.getHistory = async (req, res) => {
   try {
     const complaint = await prisma.complaint.findUnique({
@@ -147,6 +165,22 @@ exports.submitFeedback = async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation failed', details: error.errors });
     }
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.getOne = async (req, res) => {
+  try {
+    const complaint = await prisma.complaint.findUnique({
+      where: { id: req.params.id },
+      include: { category: true, resident: true, thread: true, feedback: true }
+    });
+    if (!complaint) return res.status(404).json({ error: 'Not found' });
+    if (req.user.role !== 'admin' && complaint.residentId !== req.user.id) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    res.json(complaint);
+  } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
