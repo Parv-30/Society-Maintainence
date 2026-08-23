@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: smt-backend
+    env: node
+    region: oregon
+    buildCommand: npm install && npx prisma generate
+    startCommand: node src/index.js
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: smt-postgres
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RECURRENCE_WINDOW_DAYS
+        value: 30
+
+databases:
+  - name: smt-postgres
+    databaseName: smt_db
+    user: smt_user
+    plan: free
+    region: oregon

@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: smt_postgres
+    environment:
+      POSTGRES_USER: smt_user
+      POSTGRES_PASSWORD: smt_password
+      POSTGRES_DB: smt_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smt_user -d smt_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smt_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://smt_user:smt_password@postgres:5432/smt_db
+      - PORT=5000
+      - JWT_SECRET=super_secret_jwt_key_for_dev
+      - CLOUDINARY_URL=
+      - RESEND_API_KEY=
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smt_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:5000/api
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

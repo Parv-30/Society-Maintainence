@@ -1,0 +1,128 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String             @id @default(uuid())
+  name          String
+  email         String             @unique
+  passwordHash  String
+  role          Role
+  flatNumber    String?
+  block         String?
+  createdAt     DateTime           @default(now())
+  complaints    Complaint[]
+  notices       Notice[]
+  history       ComplaintHistory[]
+}
+
+enum Role {
+  resident
+  admin
+}
+
+model Category {
+  id                   String        @id @default(uuid())
+  name                 String        @unique
+  overdueThresholdDays Int           @default(7)
+  complaints           Complaint[]
+  threads              IssueThread[]
+}
+
+model IssueThread {
+  id              String      @id @default(uuid())
+  categoryId      String
+  category        Category    @relation(fields: [categoryId], references: [id])
+  block           String
+  recurrenceCount Int         @default(1)
+  firstReportedAt DateTime    @default(now())
+  lastReportedAt  DateTime    @default(now())
+  autoEscalated   Boolean     @default(false)
+  complaints      Complaint[]
+}
+
+model Complaint {
+  id              String              @id @default(uuid())
+  threadId        String?
+  thread          IssueThread?        @relation(fields: [threadId], references: [id])
+  residentId      String
+  resident        User                @relation(fields: [residentId], references: [id])
+  categoryId      String
+  category        Category            @relation(fields: [categoryId], references: [id])
+  title           String
+  description     String
+  photoUrl        String?
+  status          Status              @default(Open)
+  priority        Priority            @default(Low)
+  priorityAutoSet Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+  resolvedAt      DateTime?
+  history         ComplaintHistory[]
+  feedback        ComplaintFeedback?
+}
+
+enum Status {
+  Open
+  InProgress
+  Resolved
+  Reopened
+}
+
+enum Priority {
+  Low
+  Medium
+  High
+}
+
+model ComplaintHistory {
+  id          String    @id @default(uuid())
+  complaintId String
+  complaint   Complaint @relation(fields: [complaintId], references: [id])
+  actorId     String
+  actor       User      @relation(fields: [actorId], references: [id])
+  fromStatus  Status?
+  toStatus    Status
+  note        String?
+  changedAt   DateTime  @default(now())
+}
+
+model Notice {
+  id          String   @id @default(uuid())
+  adminId     String
+  admin       User     @relation(fields: [adminId], references: [id])
+  title       String
+  body        String
+  isImportant Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model ComplaintFeedback {
+  id          String    @id @default(uuid())
+  complaintId String    @unique
+  complaint   Complaint @relation(fields: [complaintId], references: [id])
+  rating      Int
+  reopened    Boolean   @default(false)
+  submittedAt DateTime  @default(now())
+}
+
+model EmailOutbox {
+  id        String       @id @default(uuid())
+  toEmail   String
+  subject   String
+  body      String
+  status    OutboxStatus @default(pending)
+  createdAt DateTime     @default(now())
+  sentAt    DateTime?
+}
+
+enum OutboxStatus {
+  pending
+  sent
+  failed
+}
