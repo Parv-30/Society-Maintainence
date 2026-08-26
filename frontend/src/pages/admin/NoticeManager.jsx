@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../../api';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
+import { Type, AlignLeft, Megaphone, Send, TriangleAlert, Inbox } from 'lucide-react';
+import api from '../../api';
+import Loader from '../../components/Loader';
+import { FormField, inputClass } from '../../components/FormField';
+import { fadeUp, staggerContainer, staggerItem } from '../../lib/motion';
 
 export default function NoticeManager() {
   const [formData, setFormData] = useState({ title: '', body: '', isImportant: false });
@@ -29,64 +34,90 @@ export default function NoticeManager() {
   };
 
   return (
-    <div className="grid md:grid-cols-2 gap-8">
-      <div>
-        <h1 className="text-2xl font-bold mb-6">Post a Notice</h1>
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow space-y-4">
-          {error && <div className="text-red-500">{error}</div>}
-          
-          <div>
-            <label className="block mb-1 font-medium">Title</label>
-            <input 
-              type="text" className="w-full border p-2 rounded" required minLength={5}
-              value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})}
+    <div className="grid gap-8 md:grid-cols-2">
+      <motion.div initial="hidden" animate="show" variants={fadeUp}>
+        <h1 className="mb-6 font-display text-2xl font-semibold text-ink">Post a notice</h1>
+        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-border-c bg-surface p-6 shadow-soft">
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                className="flex items-center gap-2 overflow-hidden rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300"
+              >
+                <TriangleAlert size={15} /> {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <FormField label="Title" icon={Type}>
+            <input
+              type="text" className={inputClass} required minLength={5}
+              value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })}
+              placeholder="Elevator maintenance this weekend"
             />
-          </div>
-          
-          <div>
-            <label className="block mb-1 font-medium">Message Body</label>
-            <textarea 
-              className="w-full border p-2 rounded h-32" required minLength={10}
-              value={formData.body} onChange={e => setFormData({...formData, body: e.target.value})}
+          </FormField>
+
+          <FormField label="Message body" icon={AlignLeft}>
+            <textarea
+              className={`${inputClass} h-32 resize-none`} required minLength={10}
+              value={formData.body} onChange={e => setFormData({ ...formData, body: e.target.value })}
+              placeholder="Add the details residents need to know"
             />
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <input 
-              type="checkbox" id="important"
-              checked={formData.isImportant} onChange={e => setFormData({...formData, isImportant: e.target.checked})}
+          </FormField>
+
+          <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-red-500/20 bg-red-500/10 p-3.5">
+            <input
+              type="checkbox"
+              checked={formData.isImportant} onChange={e => setFormData({ ...formData, isImportant: e.target.checked })}
+              className="h-4 w-4 accent-red-600"
             />
-            <label htmlFor="important" className="font-medium text-red-600">
-              Mark as IMPORTANT (Emails will be sent to all residents)
-            </label>
-          </div>
-          
-          <button 
-            type="submit" disabled={mutation.isLoading}
-            className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 disabled:opacity-50"
+            <span className="flex items-center gap-1.5 text-sm font-medium text-red-300">
+              <Megaphone size={14} /> Mark as important (emails sent to all residents)
+            </span>
+          </label>
+
+          <motion.button
+            whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}
+            type="submit" disabled={mutation.isPending}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 py-3 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-brand-800 disabled:opacity-60"
           >
-            {mutation.isLoading ? 'Posting...' : 'Post Notice'}
-          </button>
+            {mutation.isPending ? 'Posting...' : (<><Send size={15} /> Post notice</>)}
+          </motion.button>
         </form>
-      </div>
+      </motion.div>
 
       <div>
-        <h2 className="text-2xl font-bold mb-6">Recent Notices</h2>
-        {isLoading ? <div>Loading...</div> : (
-          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+        <h2 className="mb-6 font-display text-2xl font-semibold text-ink">Recent notices</h2>
+        {isLoading ? <Loader height="30vh" /> : notices?.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border-strong bg-surface p-10 text-center">
+            <Inbox size={26} className="mx-auto mb-2 text-muted-2" />
+            <p className="text-sm text-muted">No notices posted yet.</p>
+          </div>
+        ) : (
+          <motion.div
+            initial="hidden" animate="show" variants={staggerContainer(0.06)}
+            className="max-h-[600px] space-y-3.5 overflow-y-auto pr-1"
+          >
             {notices?.map(notice => (
-              <div key={notice.id} className={`p-4 rounded shadow border-l-4 bg-white ${notice.isImportant ? 'border-red-500' : 'border-blue-500'}`}>
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="font-bold flex items-center gap-2 text-lg">
-                    {notice.isImportant && <span className="text-red-500 text-[10px] bg-red-100 px-1.5 py-0.5 rounded">IMPORTANT</span>}
+              <motion.div
+                variants={staggerItem}
+                key={notice.id}
+                className="rounded-2xl border border-border-c bg-surface p-4 shadow-soft"
+                style={{ borderLeftWidth: 4, borderLeftColor: notice.isImportant ? '#ef4444' : 'var(--color-brand-400)' }}
+              >
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <h3 className="flex items-center gap-2 text-base font-semibold text-ink">
+                    {notice.isImportant && (
+                      <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-300">Important</span>
+                    )}
                     {notice.title}
                   </h3>
                 </div>
-                <div className="text-xs text-gray-500 mb-2">{format(new Date(notice.createdAt), 'PPP')}</div>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{notice.body}</p>
-              </div>
+                <div className="mb-2 text-xs text-muted-2">{format(new Date(notice.createdAt), 'PPP')}</div>
+                <p className="whitespace-pre-wrap text-sm text-muted">{notice.body}</p>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

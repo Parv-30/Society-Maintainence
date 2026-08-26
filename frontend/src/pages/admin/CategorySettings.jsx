@@ -1,6 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { SlidersHorizontal } from 'lucide-react';
 import api from '../../api';
+import Loader from '../../components/Loader';
+import { staggerContainer, staggerItem, fadeUp } from '../../lib/motion';
 
 export default function CategorySettings() {
   const queryClient = useQueryClient();
@@ -21,56 +25,58 @@ export default function CategorySettings() {
   });
 
   return (
-    <div className="grid gap-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-bold">Category SLA Settings</h1>
-        <p className="text-gray-500 text-sm mt-1">Configure overdue thresholds per complaint category</p>
-      </div>
+    <motion.div initial="hidden" animate="show" variants={staggerContainer(0.06)} className="grid max-w-3xl gap-6">
+      <motion.div variants={fadeUp}>
+        <h1 className="font-display text-3xl font-semibold text-ink">Category SLA settings</h1>
+        <p className="mt-1 text-sm text-muted">Configure overdue thresholds per complaint category</p>
+      </motion.div>
 
       {isLoading ? (
-        <div className="flex h-32 items-center justify-center">
-          <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
-        </div>
+        <Loader height="30vh" />
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <motion.div variants={fadeUp} className="overflow-hidden rounded-2xl border border-border-c bg-surface shadow-soft">
           <table className="w-full text-left">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="border-b border-border-c bg-white/5">
               <tr>
-                <th className="p-4 font-semibold text-gray-700">Category</th>
-                <th className="p-4 font-semibold text-gray-700">Overdue After (Days)</th>
-                <th className="p-4 font-semibold text-gray-700">Action</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-wide text-muted">Category</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-wide text-muted">Overdue after (days)</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-wide text-muted">Action</th>
               </tr>
             </thead>
-            <tbody>
+            <motion.tbody variants={staggerContainer(0.04)}>
               {categories?.map(cat => (
-                <tr key={cat.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                  <td className="p-4 font-medium text-gray-800">{cat.name}</td>
+                <motion.tr variants={staggerItem} key={cat.id} className="border-b border-border-c transition-colors last:border-0 hover:bg-white/5">
+                  <td className="p-4 font-medium text-ink">{cat.name}</td>
                   <td className="p-4">
-                    <input
-                      type="number" min="1"
-                      className="border border-gray-200 p-2 rounded-lg w-24 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      defaultValue={cat.overdueThresholdDays}
-                      id={`threshold-${cat.id}`}
-                    />
+                    <div className="flex items-center gap-2">
+                      <SlidersHorizontal size={13} className="text-muted-2" />
+                      <input
+                        type="number" min="1"
+                        className="w-24 rounded-lg border border-border-c bg-white/5 p-2 text-sm text-ink outline-none transition-all focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15"
+                        defaultValue={cat.overdueThresholdDays}
+                        id={`threshold-${cat.id}`}
+                      />
+                    </div>
                   </td>
                   <td className="p-4">
-                    <button
+                    <motion.button
+                      whileHover={{ y: -1 }} whileTap={{ scale: 0.95 }}
                       onClick={() => {
                         const val = document.getElementById(`threshold-${cat.id}`).value;
                         mutation.mutate({ id: cat.id, overdueThresholdDays: val });
                       }}
                       disabled={mutation.isPending}
-                      className="text-white bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-lg font-semibold text-sm transition disabled:opacity-50"
+                      className="rounded-lg bg-brand-700 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-800 disabled:opacity-50"
                     >
                       Save
-                    </button>
+                    </motion.button>
                   </td>
-                </tr>
+                </motion.tr>
               ))}
-            </tbody>
+            </motion.tbody>
           </table>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }

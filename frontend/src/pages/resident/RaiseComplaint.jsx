@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Tag, Type, AlignLeft, Camera, Send, TriangleAlert, X } from 'lucide-react';
 import api from '../../api';
+import { FormField, inputClass } from '../../components/FormField';
+import { pageVariants } from '../../lib/motion';
 
 export default function RaiseComplaint() {
   const [formData, setFormData] = useState({ categoryId: '', title: '', description: '' });
   const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -26,8 +31,15 @@ export default function RaiseComplaint() {
     onError: (err) => setError(err.response?.data?.error || 'Failed to submit')
   });
 
+  const handleFile = (e) => {
+    const f = e.target.files[0];
+    setFile(f);
+    setPreview(f ? URL.createObjectURL(f) : null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     if (!formData.categoryId) {
       setError('Please select a category');
       return;
@@ -53,63 +65,92 @@ export default function RaiseComplaint() {
     createMutation.mutate({ ...formData, photoUrl });
   };
 
+  const busy = createMutation.isPending || uploading;
+
   return (
-    <div className="max-w-2xl mx-auto bg-white p-8 rounded shadow">
-      <h1 className="text-2xl font-bold mb-6">Raise a Complaint</h1>
-      {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block mb-1 font-medium">Category</label>
-          <select 
-            className="w-full border p-2 rounded"
-            value={formData.categoryId}
-            onChange={e => setFormData({...formData, categoryId: e.target.value})}
-            required
+    <motion.div variants={pageVariants} initial="initial" animate="animate" exit="exit" className="mx-auto max-w-2xl">
+      <div className="rounded-2xl border border-border-c bg-surface p-8 shadow-soft">
+        <h1 className="font-display text-2xl font-semibold text-ink">Raise a complaint</h1>
+        <p className="mt-1 mb-6 text-sm text-muted">Tell us what's wrong and we'll route it to the right team.</p>
+
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+              className="mb-4 flex items-center gap-2 overflow-hidden rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300"
+            >
+              <TriangleAlert size={15} /> {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormField label="Category" icon={Tag}>
+            <select
+              className={inputClass}
+              value={formData.categoryId}
+              onChange={e => setFormData({ ...formData, categoryId: e.target.value })}
+              required
+            >
+              <option value="">Select category</option>
+              {categories?.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </FormField>
+
+          <FormField label="Title" icon={Type}>
+            <input
+              type="text" className={inputClass}
+              value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })}
+              required minLength={5} placeholder="Brief description of the issue"
+            />
+          </FormField>
+
+          <FormField label="Detailed description" icon={AlignLeft}>
+            <textarea
+              className={`${inputClass} h-32 resize-none`}
+              value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}
+              required minLength={10} placeholder="Include location, timing, and severity if relevant"
+            />
+          </FormField>
+
+          <FormField label="Photo (optional)" icon={Camera}>
+            {preview ? (
+              <div className="relative w-fit">
+                <img src={preview} alt="Selected preview" className="h-32 w-32 rounded-xl border border-border-c object-cover" />
+                <button
+                  type="button"
+                  onClick={() => { setFile(null); setPreview(null); }}
+                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-surface-2 text-ink shadow-soft"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ) : (
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border-c py-6 text-center transition-colors hover:border-brand-400 hover:bg-brand-500/5">
+                <Camera size={22} className="text-muted-2" />
+                <span className="text-sm text-muted">Click to attach a photo</span>
+                <input type="file" accept="image/jpeg, image/png" className="hidden" onChange={handleFile} />
+              </label>
+            )}
+            <p className="mt-1.5 text-xs text-muted-2">Max 5MB (JPG/PNG)</p>
+          </FormField>
+
+          <motion.button
+            whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}
+            type="submit"
+            disabled={busy}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 py-3 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-brand-800 disabled:opacity-60"
           >
-            <option value="">Select Category</option>
-            {categories?.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block mb-1 font-medium">Title</label>
-          <input 
-            type="text" className="w-full border p-2 rounded"
-            value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})}
-            required minLength={5} placeholder="Brief description of the issue"
-          />
-        </div>
-
-        <div>
-          <label className="block mb-1 font-medium">Detailed Description</label>
-          <textarea 
-            className="w-full border p-2 rounded h-32"
-            value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}
-            required minLength={10}
-          />
-        </div>
-
-        <div>
-          <label className="block mb-1 font-medium">Photo (Optional)</label>
-          <input 
-            type="file" accept="image/jpeg, image/png"
-            className="w-full border p-2 rounded"
-            onChange={e => setFile(e.target.files[0])}
-          />
-          <p className="text-sm text-gray-500 mt-1">Max 5MB (JPG/PNG)</p>
-        </div>
-
-        <button 
-          type="submit" 
-          disabled={createMutation.isLoading || uploading}
-          className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-        >
-          {uploading ? 'Uploading Photo...' : createMutation.isLoading ? 'Submitting...' : 'Submit Complaint'}
-        </button>
-      </form>
-    </div>
+            {uploading ? 'Uploading photo...' : createMutation.isPending ? 'Submitting...' : (
+              <>
+                <Send size={15} /> Submit complaint
+              </>
+            )}
+          </motion.button>
+        </form>
+      </div>
+    </motion.div>
   );
 }

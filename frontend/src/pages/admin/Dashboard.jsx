@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Inbox, Clock4, CircleCheck, AlertTriangle, Flame, ArrowRight } from 'lucide-react';
 import api from '../../api';
+import Loader from '../../components/Loader';
+import { staggerContainer, staggerItem, fadeUp } from '../../lib/motion';
 
 export default function Dashboard() {
   const { data, isLoading } = useQuery({
@@ -9,77 +12,87 @@ export default function Dashboard() {
     queryFn: async () => (await api.get('/admin/dashboard')).data
   });
 
-  if (isLoading) return (
-    <div className="flex h-[50vh] items-center justify-center">
-      <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
-    </div>
-  );
+  if (isLoading) return <Loader />;
 
   const statCards = [
-    { label: 'Open', value: data.statusCounts.Open, color: 'border-blue-500', text: 'text-blue-600' },
-    { label: 'In Progress', value: data.statusCounts.InProgress, color: 'border-yellow-500', text: 'text-yellow-600' },
-    { label: 'Resolved', value: data.statusCounts.Resolved, color: 'border-green-500', text: 'text-green-600' },
-    { label: 'Overdue', value: data.overdueCount, color: 'border-red-500', text: 'text-red-600' },
+    { label: 'Open', value: data.statusCounts.Open, icon: Inbox, bg: 'bg-brand-500/10', fg: 'text-brand-300' },
+    { label: 'In progress', value: data.statusCounts.InProgress, icon: Clock4, bg: 'bg-accent-500/10', fg: 'text-accent-300' },
+    { label: 'Resolved', value: data.statusCounts.Resolved, icon: CircleCheck, bg: 'bg-emerald-500/10', fg: 'text-emerald-300' },
+    { label: 'Overdue', value: data.overdueCount, icon: AlertTriangle, bg: 'bg-red-500/10', fg: 'text-red-300' },
   ];
 
-  const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-  const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
-
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid gap-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">Overview of all society maintenance activity</p>
-      </div>
-
-      {/* Stat Cards */}
-      <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {statCards.map(card => (
-          <motion.div variants={item} key={card.label} className={`bg-white p-6 rounded-xl shadow-sm border-t-4 ${card.color} border border-gray-100`}>
-            <h3 className="text-gray-500 font-medium text-sm">{card.label}</h3>
-            <div className={`text-4xl font-bold mt-1 ${card.text}`}>{card.value}</div>
-          </motion.div>
-        ))}
+    <motion.div initial="hidden" animate="show" variants={staggerContainer(0.06)} className="grid gap-6">
+      <motion.div variants={fadeUp}>
+        <h1 className="font-display text-3xl font-semibold text-ink">Admin dashboard</h1>
+        <p className="mt-1 text-sm text-muted">Overview of all society maintenance activity</p>
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Category Counts */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="font-bold text-lg mb-4 text-gray-900">Complaints by Category</h3>
-          <ul className="space-y-2">
-            {data.categoryCounts.filter(c => c.count > 0).map(c => (
-              <li key={c.category} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg border border-gray-100">
-                <span className="text-sm font-medium text-gray-700">{c.category}</span>
-                <span className="bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full text-xs font-bold">{c.count}</span>
-              </li>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        {statCards.map(card => (
+          <motion.div
+            variants={staggerItem}
+            whileHover={{ y: -3 }}
+            key={card.label}
+            className="rounded-2xl border border-border-c bg-surface p-5 shadow-soft transition-shadow hover:shadow-lift hover:border-border-strong"
+          >
+            <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.bg} ${card.fg}`}>
+              <card.icon size={19} strokeWidth={2.25} />
+            </span>
+            <h3 className="mt-3.5 text-sm font-medium text-muted">{card.label}</h3>
+            <div className="mt-0.5 text-3xl font-bold tracking-tight text-ink">{card.value}</div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <motion.div variants={fadeUp} className="rounded-2xl border border-border-c bg-surface p-6 shadow-soft">
+          <h3 className="mb-4 font-display text-lg font-semibold text-ink">Complaints by category</h3>
+          <ul className="space-y-1.5">
+            {data.categoryCounts.filter(c => c.count > 0).map((c, i) => (
+              <motion.li
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 + i * 0.04 }}
+                key={c.category}
+                className="flex items-center justify-between rounded-xl p-2.5 transition-colors hover:bg-white/5"
+              >
+                <span className="text-sm font-medium text-muted">{c.category}</span>
+                <span className="rounded-full bg-brand-500/10 px-2.5 py-0.5 text-xs font-bold text-brand-300">{c.count}</span>
+              </motion.li>
             ))}
           </ul>
-        </div>
+        </motion.div>
 
-        {/* Top Recurring */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-lg text-gray-900">Top Recurring Issues</h3>
-            <Link to="/admin/recurring" className="text-sm text-blue-600 hover:underline">View All →</Link>
+        <motion.div variants={fadeUp} className="rounded-2xl border border-border-c bg-surface p-6 shadow-soft">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-display text-lg font-semibold text-ink">Top recurring issues</h3>
+            <Link to="/admin/recurring" className="flex items-center gap-1 text-sm font-medium text-brand-300 hover:text-brand-200">
+              View all <ArrowRight size={14} />
+            </Link>
           </div>
           {data.topRecurring.length === 0 ? (
-            <p className="text-sm text-gray-400">No recurring issues yet</p>
+            <p className="py-6 text-center text-sm text-muted-2">No recurring issues yet</p>
           ) : (
             <ul className="space-y-2">
               {data.topRecurring.map(t => (
-                <li key={t.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="flex justify-between font-semibold text-sm">
-                    <span className="text-gray-800">{t.category.name} — Block {t.block}</span>
-                    <span className="text-red-600 font-bold">{t.recurrenceCount}×</span>
+                <li key={t.id} className="rounded-xl border border-border-c bg-white/5 p-3.5">
+                  <div className="flex items-center justify-between text-sm font-semibold">
+                    <span className="text-ink">{t.category.name} &mdash; Block {t.block}</span>
+                    <span className="flex items-center gap-1 font-bold text-red-400">
+                      {t.recurrenceCount}&times;
+                    </span>
                   </div>
                   {t.autoEscalated && (
-                    <span className="inline-block mt-1 text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase">Auto-escalated</span>
+                    <span className="mt-1.5 inline-flex items-center gap-1 rounded bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-300">
+                      <Flame size={10} /> Auto-escalated
+                    </span>
                   )}
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </motion.div>
       </div>
     </motion.div>
   );

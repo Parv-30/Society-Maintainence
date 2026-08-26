@@ -15,13 +15,14 @@ import ComplaintList from './pages/admin/ComplaintList';
 import RecurringIssues from './pages/admin/RecurringIssues';
 import CategorySettings from './pages/admin/CategorySettings';
 import NoticeManager from './pages/admin/NoticeManager';
+import Loader from './components/Loader';
 
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children, role }) => {
   const { user, loading } = useAuth();
-  
-  if (loading) return <div className="flex h-[80vh] items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div></div>;
+
+  if (loading) return <Loader height="80vh" />;
   if (!user) return <Navigate to="/login" />;
   if (role && user.role !== role) {
     return <Navigate to={user.role === 'admin' ? '/admin' : '/resident'} />;
@@ -33,9 +34,16 @@ const ProtectedRoute = ({ children, role }) => {
 function AppRoutes() {
   const location = useLocation();
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-screen bg-page text-ink">
       <Navbar />
-      <Toaster position="top-center" toastOptions={{ duration: 3000, style: { background: '#333', color: '#fff', borderRadius: '8px' } }} />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: { background: '#1e1b4b', color: '#fff', borderRadius: '12px', fontSize: '14px' },
+          success: { iconTheme: { primary: '#f59e0b', secondary: '#1e1b4b' } },
+        }}
+      />
       <main className="container mx-auto px-4 py-8">
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>

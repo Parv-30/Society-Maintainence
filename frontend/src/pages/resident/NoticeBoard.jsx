@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
+import { Megaphone, Inbox } from 'lucide-react';
 import api from '../../api';
+import Loader from '../../components/Loader';
+import { staggerContainer, staggerItem, fadeUp } from '../../lib/motion';
 
 export default function NoticeBoard() {
   const { data: notices, isLoading } = useQuery({
@@ -9,53 +12,48 @@ export default function NoticeBoard() {
     queryFn: async () => (await api.get('/notices')).data
   });
 
-  if (isLoading) return (
-    <div className="flex h-[50vh] items-center justify-center">
-      <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
-    </div>
-  );
-
-  const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
-  const item = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } };
+  if (isLoading) return <Loader />;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Notice Board</h1>
-        <p className="text-gray-500 text-sm mt-1">Important announcements pinned to top</p>
-      </div>
+    <motion.div initial="hidden" animate="show" variants={staggerContainer(0.06)} className="mx-auto max-w-2xl">
+      <motion.div variants={fadeUp} className="mb-8">
+        <h1 className="font-display text-3xl font-semibold text-ink">Notice board</h1>
+        <p className="mt-1 text-sm text-muted">Important announcements, pinned to top</p>
+      </motion.div>
 
       {notices?.length === 0 ? (
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 text-center text-gray-500">
-          No notices posted yet.
-        </div>
+        <motion.div variants={fadeUp} className="rounded-2xl border border-dashed border-border-strong bg-surface p-12 text-center">
+          <Inbox size={28} className="mx-auto mb-3 text-muted-2" />
+          <h3 className="font-display text-lg font-semibold text-ink">No notices yet</h3>
+          <p className="mt-1 text-sm text-muted">Society announcements will show up here.</p>
+        </motion.div>
       ) : (
-        <motion.div variants={container} initial="hidden" animate="show" className="grid gap-4">
+        <div className="grid gap-3.5">
           {notices?.map(notice => (
             <motion.div
-              variants={item}
+              variants={staggerItem}
               key={notice.id}
-              className={`bg-white p-6 rounded-xl shadow-sm border-l-4 ${
-                notice.isImportant ? 'border-red-500' : 'border-blue-400'
-              } border border-gray-100`}
+              whileHover={{ y: -2 }}
+              className={`rounded-2xl border bg-surface p-5 shadow-soft transition-shadow hover:shadow-lift ${
+                notice.isImportant ? 'border-red-500/20' : 'border-border-c'
+              }`}
+              style={notice.isImportant ? { borderLeftWidth: 4, borderLeftColor: '#ef4444' } : { borderLeftWidth: 4, borderLeftColor: 'var(--color-brand-400)' }}
             >
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+              <div className="mb-1.5 flex items-start justify-between gap-4">
+                <h3 className="flex items-center gap-2 font-display text-lg font-semibold text-ink">
                   {notice.isImportant && (
-                    <span className="inline-flex items-center px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded uppercase tracking-wide">
-                      📢 Important
+                    <span className="inline-flex items-center gap-1 rounded bg-red-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-300">
+                      <Megaphone size={10} /> Important
                     </span>
                   )}
                   {notice.title}
                 </h3>
-                <span className="text-xs text-gray-400 shrink-0">
-                  {format(new Date(notice.createdAt), 'PP')}
-                </span>
+                <span className="shrink-0 text-xs text-muted-2">{format(new Date(notice.createdAt), 'PP')}</span>
               </div>
-              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{notice.body}</p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{notice.body}</p>
             </motion.div>
           ))}
-        </motion.div>
+        </div>
       )}
     </motion.div>
   );

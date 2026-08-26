@@ -1,11 +1,28 @@
+import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Building2, LayoutDashboard, ListChecks, Repeat, SlidersHorizontal,
+  Megaphone, FileText, LogOut, Menu, X
+} from 'lucide-react';
+
+const NAV_ICONS = {
+  '/admin': LayoutDashboard,
+  '/admin/complaints': ListChecks,
+  '/admin/recurring': Repeat,
+  '/admin/categories': SlidersHorizontal,
+  '/admin/notices': Megaphone,
+  '/resident': ListChecks,
+  '/resident/raise': FileText,
+  '/resident/notices': Megaphone,
+};
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -14,52 +31,114 @@ export default function Navbar() {
 
   if (!user) return null;
 
-  const NavLink = ({ to, children }) => {
+  const links = user.role === 'admin'
+    ? [
+        { to: '/admin', label: 'Dashboard' },
+        { to: '/admin/complaints', label: 'Complaints' },
+        { to: '/admin/recurring', label: 'Recurring' },
+        { to: '/admin/categories', label: 'Settings' },
+        { to: '/admin/notices', label: 'Notices' },
+      ]
+    : [
+        { to: '/resident', label: 'My complaints' },
+        { to: '/resident/raise', label: 'Raise issue' },
+        { to: '/resident/notices', label: 'Notice board' },
+      ];
+
+  const NavLink = ({ to, label, mobile }) => {
     const isActive = location.pathname === to;
+    const Icon = NAV_ICONS[to];
     return (
-      <Link to={to} className="relative px-3 py-2 rounded-md text-sm font-medium transition-colors hover:text-blue-600 text-gray-700">
-        {children}
-        {isActive && (
-          <motion.div layoutId="navbar-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
+      <Link
+        to={to}
+        onClick={() => setMenuOpen(false)}
+        className={`relative flex items-center gap-2 rounded-lg text-sm font-medium transition-colors ${
+          mobile ? 'px-4 py-3' : 'px-3 py-2'
+        } ${isActive ? 'text-white' : 'text-muted hover:text-white hover:bg-white/5'}`}
+      >
+        {mobile && Icon && <Icon size={18} strokeWidth={2} />}
+        {label}
+        {isActive && !mobile && (
+          <motion.div
+            layoutId="navbar-indicator"
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            className="absolute -bottom-[1px] left-2 right-2 h-[2.5px] rounded-full bg-brand-400"
+          />
+        )}
+        {isActive && mobile && (
+          <motion.div layoutId="navbar-indicator-mobile" className="absolute inset-0 rounded-lg bg-white/5 -z-10" />
         )}
       </Link>
     );
   };
 
   return (
-    <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-200">
-      <div className="container mx-auto px-4 h-16 flex justify-between items-center">
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="font-extrabold text-2xl bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-          SocietyTracker
-        </motion.div>
-        
-        <div className="flex items-center gap-1 md:gap-4 hidden sm:flex">
-          {user.role === 'admin' ? (
-            <>
-              <NavLink to="/admin">Dashboard</NavLink>
-              <NavLink to="/admin/complaints">Complaints</NavLink>
-              <NavLink to="/admin/recurring">Recurring</NavLink>
-              <NavLink to="/admin/categories">Settings</NavLink>
-              <NavLink to="/admin/notices">Notices</NavLink>
-            </>
-          ) : (
-            <>
-              <NavLink to="/resident">My Complaints</NavLink>
-              <NavLink to="/resident/raise">Raise Issue</NavLink>
-              <NavLink to="/resident/notices">Notice Board</NavLink>
-            </>
-          )}
+    <nav className="sticky top-0 z-50 border-b border-border-c bg-page/85 backdrop-blur-md">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+        <Link to={user.role === 'admin' ? '/admin' : '/resident'} className="flex items-center gap-2 shrink-0">
+          <motion.span
+            initial={{ rotate: -8, scale: 0.9 }}
+            animate={{ rotate: 0, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-glow"
+          >
+            <Building2 size={18} strokeWidth={2.25} />
+          </motion.span>
+          <span className="font-display text-xl font-semibold tracking-tight text-ink">
+            SocietyTracker
+          </span>
+        </Link>
+
+        <div className="hidden items-center gap-1 sm:flex">
+          {links.map(l => <NavLink key={l.to} {...l} />)}
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="text-sm font-medium text-gray-700 hidden md:block">
-            Hi, {user.name.split(' ')[0]}
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 rounded-full bg-white/5 py-1 pl-1 pr-3 text-sm font-medium text-muted">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-[11px] font-bold text-white">
+              {user.name.charAt(0)}
+            </span>
+            {user.name.split(' ')[0]}
           </div>
-          <button onClick={handleLogout} className="text-sm font-semibold bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg transition-colors">
+          <button
+            onClick={handleLogout}
+            className="hidden sm:flex items-center gap-1.5 rounded-lg bg-red-500/10 px-3.5 py-2 text-sm font-semibold text-red-400 transition-colors hover:bg-red-500/20"
+          >
+            <LogOut size={15} />
             Logout
+          </button>
+          <button
+            onClick={() => setMenuOpen(v => !v)}
+            className="sm:hidden flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-white/5"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          >
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="sm:hidden overflow-hidden border-t border-border-c bg-page"
+          >
+            <div className="flex flex-col gap-1 p-3">
+              {links.map(l => <NavLink key={l.to} {...l} mobile />)}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 rounded-lg px-4 py-3 text-left text-sm font-semibold text-red-400 hover:bg-red-500/10"
+              >
+                <LogOut size={18} />
+                Logout
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 }

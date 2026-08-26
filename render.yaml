@@ -2,8 +2,9 @@ services:
   - type: web
     name: smt-backend
     env: node
+    rootDir: backend
     region: oregon
-    buildCommand: npm install && npx prisma generate
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy
     startCommand: node src/index.js
     envVars:
       - key: DATABASE_URL
@@ -18,19 +19,6 @@ services:
         sync: false
       - key: RECURRENCE_WINDOW_DAYS
         value: 30
-
-  - type: web
-    name: smt-frontend
-    env: static
-    region: oregon
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: smt-backend
-          envVarKey: RENDER_EXTERNAL_URL
 
 databases:
   - name: smt-postgres
