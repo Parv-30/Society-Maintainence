@@ -8,9 +8,7 @@ services:
     startCommand: node src/index.js
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: smt-postgres
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: CLOUDINARY_URL
@@ -19,10 +17,3 @@ services:
         sync: false
       - key: RECURRENCE_WINDOW_DAYS
         value: 30
-
-databases:
-  - name: smt-postgres
-    databaseName: smt_db
-    user: smt_user
-    plan: free
-    region: oregon
